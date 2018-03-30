@@ -48,7 +48,7 @@ all_bms$Outlet_Size[all_bms$Outlet_Size == ""] <- as.vector(pred)
 
 table(all_bms$Outlet_Size, all_bms$Outlet_Identifier)
 ```
-#### classification: Unify
+#### Classification: Unify
 ```{r}
 all_bms$Item_Fat_Content[all_bms$Item_Fat_Content %in% 
                            c("LF","low fat")] <- "Low Fat"
@@ -57,14 +57,14 @@ all_bms$Item_Fat_Content[all_bms$Item_Fat_Content %in%
 table(all_bms$Item_Fat_Content)
 ```
 
-#### classification: Additional Infor
+#### Classification: Additional
 ```{r}
 all_bms$Item_Attribute <-  factor(substr(all_bms$Item_Identifier, 1, 2))
 table(all_bms$Item_Attribute)
 all_bms$Item_Fat_Content[all_bms$Item_Attribute == "NC"] <- "Non-Food"
 table(all_bms$Item_Fat_Content)
 ```
-#### Visibility
+#### Visibility == 0
 ```{r}
 tmp3 <- aggregate(Item_Visibility~Outlet_Identifier,data = all_bms,FUN = mean)
 for (i in which(all_bms$Item_Visibility == 0)) {
@@ -72,7 +72,7 @@ for (i in which(all_bms$Item_Visibility == 0)) {
 }
 sum(all_bms$Item_Visibility==0)
 ```
-#### New Establish Year
+#### New Establish Year Column
 ```{r}
 all_bms$Outlet_Years <- 2013 - all_bms$Outlet_Establishment_Year
 ```
@@ -123,7 +123,7 @@ submit    <- data.frame(Item_Identifier = test.data$Item_Identifier,
                         Item_Outlet_Sales = pred.test*test$Item_MRP)
 write.csv(submit, file = "dtree.csv", row.names = FALSE)
 ```
-#### Modle2: Random Forest
+#### Model 2: Random Forest
 ```{r}
 set.seed(2345)
 fit.rf <- randomForest(myformula, 
@@ -155,8 +155,8 @@ pred.test <- predict(fit.gbm,test)
 submit <- data.frame(Item_Identifier = test$Item_Identifier, Outlet_Identifier = test$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
 write.csv(submit, file = "gbm5cv.csv", row.names = FALSE)
 ```
-### xgboost
-#### Step 1: Sparse Matrix
+#### Model 4: xgboost
+##### Step 1: Sparse Matrix
 ```{r}
 mymatrix <- function(train){
   matrix_num <- train[,c("Item_Visibility","Item_MRP")]
@@ -182,7 +182,7 @@ dtest_val <- xgb.DMatrix(data = xgb.test_val,label=test_val$Item_Sales_Vol)
 dtest_sub <- xgb.DMatrix(data = xgb.test)
 ```
 
-#### Prelimilary
+##### Prelimilary
 ```{r}
 model <- xgboost(data = dtrain_val,nround = 5)
 
@@ -195,7 +195,7 @@ pred.test <- predict(model,dtest_sub)
 submit <- data.frame(Item_Identifier = test$Item_Identifier, Outlet_Identifier = test$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
 write.csv(submit, file = "xgb.csv", row.names = FALSE)
 ```
-#### Optimized
+##### Optimized
 ```{r}
 model_tuned <- xgboost(data = dtrain_val,
                        nround = 10,
