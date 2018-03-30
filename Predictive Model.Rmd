@@ -9,12 +9,12 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-###Load libraries
+### Load library
 ```{r message = F, warning = F}
 xlib  <- c("tidyverse", "grid", "gridExtra", "caret", "randomForest", "xgboost", "Hmisc", "rpart", "rpart.plot")
 lib   <- lapply(xlib, library, character.only = TRUE) # load the required packages
 ```
-###Load Data
+### Load Data
 ```{r}
 train.data  <- read.csv("Train_UWu5bXk.csv", stringsAsFactors = F)
 test.data   <- read.csv("Test_u94Q5KV.csv", stringsAsFactors = F)
@@ -22,8 +22,8 @@ test.data$Item_Outlet_Sales <- NA
 
 all_bms <- rbind(train.data, test.data)
 ```
-###Data Cleaning
-####Missing Values: Item_Weight
+### Data Cleaning
+#### Missing Values: Item_Weight
 ```{r}
 tmp <- aggregate(Item_Weight~Item_Identifier, data = all_bms, FUN = mean)
 #a <- group_by(all_bms, Item_Identifier) %>%
@@ -36,7 +36,7 @@ for (i in which(is.na(all_bms$Item_Weight))) {
 #sum(is.na(all_bms$Item_Weight))
 ```
 
-####Missing Values: Outlet_Size
+#### Missing Values: Outlet_Size
 ```{r}
 fit <- rpart(factor(Outlet_Size)~Outlet_Type, 
              data = all_bms[all_bms$Outlet_Size != "", ], 
@@ -48,7 +48,7 @@ all_bms$Outlet_Size[all_bms$Outlet_Size == ""] <- as.vector(pred)
 
 table(all_bms$Outlet_Size, all_bms$Outlet_Identifier)
 ```
-####classification: Unify
+#### classification: Unify
 ```{r}
 all_bms$Item_Fat_Content[all_bms$Item_Fat_Content %in% 
                            c("LF","low fat")] <- "Low Fat"
@@ -57,14 +57,14 @@ all_bms$Item_Fat_Content[all_bms$Item_Fat_Content %in%
 table(all_bms$Item_Fat_Content)
 ```
 
-####classification: Additional Infor
+#### classification: Additional Infor
 ```{r}
 all_bms$Item_Attribute <-  factor(substr(all_bms$Item_Identifier, 1, 2))
 table(all_bms$Item_Attribute)
 all_bms$Item_Fat_Content[all_bms$Item_Attribute == "NC"] <- "Non-Food"
 table(all_bms$Item_Fat_Content)
 ```
-####Visibility
+#### Visibility
 ```{r}
 tmp3 <- aggregate(Item_Visibility~Outlet_Identifier,data = all_bms,FUN = mean)
 for (i in which(all_bms$Item_Visibility == 0)) {
@@ -72,16 +72,16 @@ for (i in which(all_bms$Item_Visibility == 0)) {
 }
 sum(all_bms$Item_Visibility==0)
 ```
-####New Establish Year
+#### New Establish Year
 ```{r}
 all_bms$Outlet_Years <- 2013 - all_bms$Outlet_Establishment_Year
 ```
 
-###Predictor: Item_Sale_Volumn
+### Predictor: Item_Sale_Volumn
 ```{r}
 all_bms$Item_Sales_Vol <- round(all_bms$Item_Outlet_Sales/all_bms$Item_MRP+0.5,0)
 ```
-###Facterize
+### Facterize
 ```{r}
 cols <- c("Item_Fat_Content","Item_Type","Outlet_Location_Type","Outlet_Type","Outlet_Years","Item_Attribute","Outlet_Identifier")
 for (i in cols) {
@@ -89,7 +89,7 @@ for (i in cols) {
 }
 ```
 
-###Split
+### Split
 ```{r}
 train <- all_bms[!is.na(all_bms$Item_Outlet_Sales), ]
 test  <- all_bms[is.na(all_bms$Item_Outlet_Sales), ]
@@ -99,7 +99,7 @@ ind       <- createDataPartition(train$Item_Sales_Vol, p=.7, list = FALSE)
 train_val <- train[ind, ]
 test_val  <- train[-ind, ]
 ```
-###Build Model
+### Build Model
 ```{r}
 myformula <- Item_Sales_Vol ~ Outlet_Type + Item_Visibility + Outlet_Location_Type + Item_MRP + Item_Type + Outlet_Years + Outlet_Size
 
@@ -107,7 +107,7 @@ model.rmse <- function(pred, act){
   sqrt(sum((act - pred)^2)/length(act))
 }
 ```
-####Model 1: Decision Tree
+#### Model 1: Decision Tree
 ```{r}
 fit.tr <- rpart(myformula, 
                 data = train_val, 
@@ -123,7 +123,7 @@ submit    <- data.frame(Item_Identifier = test.data$Item_Identifier,
                         Item_Outlet_Sales = pred.test*test$Item_MRP)
 write.csv(submit, file = "dtree.csv", row.names = FALSE)
 ```
-####Modle2: Random Forest
+#### Modle2: Random Forest
 ```{r}
 set.seed(2345)
 fit.rf <- randomForest(myformula, 
@@ -138,7 +138,7 @@ pred.test <- predict(fit.rf,test)
 submit <- data.frame(Item_Identifier = test.data$Item_Identifier, Outlet_Identifier = test.data$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
 write.csv(submit, file = "rf.csv", row.names = FALSE)
 ```
-####Model 3: GBM
+#### Model 3: GBM
 ```{r}
 Ctrl <- trainControl(method="repeatedcv", number=5, repeats=5)
 set.seed(3456)
@@ -155,6 +155,60 @@ pred.test <- predict(fit.gbm,test)
 submit <- data.frame(Item_Identifier = test$Item_Identifier, Outlet_Identifier = test$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
 write.csv(submit, file = "gbm5cv.csv", row.names = FALSE)
 ```
+### xgboost
+#### Step 1: Sparse Matrix
+```{r}
+mymatrix <- function(train){
+  matrix_num <- train[,c("Item_Visibility","Item_MRP")]
+  matrix_num <- cbind(matrix_num,
+                      model.matrix(~Outlet_Type-1,train),
+                      model.matrix(~Outlet_Location_Type-1,train),
+                      model.matrix(~Outlet_Size-1,train),
+                      model.matrix(~Item_Type-1,train),
+                      model.matrix(~Outlet_Years-1,train)
+                      )
+  return(data.matrix(matrix_num))
+}
 
+#获取每个数据集的稀疏矩阵
+xgb.train_val <- mymatrix(train_val)
+xgb.test_val <- mymatrix(test_val)
+xgb.test <- mymatrix(test)
+
+#生成用于xgboots模型的DMatrix
+#注意，预测变量集和响应变量是要分开的
+dtrain_val <- xgb.DMatrix(data = xgb.train_val,label=train_val$Item_Sales_Vol)
+dtest_val <- xgb.DMatrix(data = xgb.test_val,label=test_val$Item_Sales_Vol)
+dtest_sub <- xgb.DMatrix(data = xgb.test)
+```
+
+#### Prelimilary
+```{r}
+model <- xgboost(data = dtrain_val,nround = 5)
+
+summary(model)
+pred <- predict(model,dtest_val)
+model.rmse(pred*test_val$Item_MRP,test_val$Item_Outlet_Sales)
+xgb.importance(colnames(xgb.train_val),model)
+
+pred.test <- predict(model,dtest_sub)
+submit <- data.frame(Item_Identifier = test$Item_Identifier, Outlet_Identifier = test$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
+write.csv(submit, file = "xgb.csv", row.names = FALSE)
+```
+#### Optimized
+```{r}
+model_tuned <- xgboost(data = dtrain_val,
+                       nround = 10,
+                       max.depth = 5
+                       )
+summary(model_tuned)
+pred <- predict(model_tuned,dtest_val)
+model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
+xgb.importance(colnames(xgb.train_val),model_tuned)
+
+pred.test <- predict(model_tuned,dtest_sub)
+submit <- data.frame(Item_Identifier = test$Item_Identifier, Outlet_Identifier = test$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
+write.csv(submit, file = "xgbn10d5.csv", row.names = FALSE)
+```
 
 
