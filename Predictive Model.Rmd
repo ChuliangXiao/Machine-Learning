@@ -138,7 +138,9 @@ pred <- predict(fit.rf, test_val)
 model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
 
 pred.test <- predict(fit.rf, test)
-submit <- data.frame(Item_Identifier = test.data$Item_Identifier, Outlet_Identifier = test.data$Outlet_Identifier, Item_Outlet_Sales=pred.test * test$Item_MRP)
+submit <- data.frame(Item_Identifier = test.data$Item_Identifier, 
+                     Outlet_Identifier = test.data$Outlet_Identifier, 
+                     Item_Outlet_Sales = pred.test * test$Item_MRP)
 write.csv(submit, file = "rf.csv", row.names = FALSE)
 ```
 #### Model 3: GBM
