@@ -25,7 +25,7 @@ all_bms <- rbind(train.data, test.data)
 ### Data Cleaning
 #### Missing Values: Item_Weight
 ```{r}
-tmp <- aggregate(Item_Weight~Item_Identifier, data = all_bms, FUN = mean)
+tmp <- aggregate(Item_Weight ~ Item_Identifier, data = all_bms, FUN = mean)
 #a <- group_by(all_bms, Item_Identifier) %>%
 #  summarise(Item_Weight = mean(Item_Weight, na.rm = T))
 
@@ -38,11 +38,11 @@ for (i in which(is.na(all_bms$Item_Weight))) {
 
 #### Missing Values: Outlet_Size
 ```{r}
-fit <- rpart(factor(Outlet_Size)~Outlet_Type, 
+fit <- rpart(factor(Outlet_Size) ~ Outlet_Type, 
              data = all_bms[all_bms$Outlet_Size != "", ], 
              method = "class")
 pred <- predict(fit, 
-                all_bms[all_bms$Outlet_Size=="", ], 
+                all_bms[all_bms$Outlet_Size == "", ], 
                 type = "class")
 all_bms$Outlet_Size[all_bms$Outlet_Size == ""] <- as.vector(pred)
 
@@ -66,7 +66,7 @@ table(all_bms$Item_Fat_Content)
 ```
 #### Visibility == 0
 ```{r}
-tmp3 <- aggregate(Item_Visibility~Outlet_Identifier,data = all_bms,FUN = mean)
+tmp3 <- aggregate(Item_Visibility ~ Outlet_Identifier,data = all_bms,FUN = mean)
 for (i in which(all_bms$Item_Visibility == 0)) {
   all_bms$Item_Visibility[i] <- tmp3$Item_Visibility[tmp3$Outlet_Identifier == all_bms$Outlet_Identifier[i]]
 }
@@ -79,13 +79,15 @@ all_bms$Outlet_Years <- 2013 - all_bms$Outlet_Establishment_Year
 
 ### Predictor: Item_Sale_Volumn
 ```{r}
-all_bms$Item_Sales_Vol <- round(all_bms$Item_Outlet_Sales/all_bms$Item_MRP+0.5,0)
+all_bms$Item_Sales_Vol <- round(all_bms$Item_Outlet_Sales / all_bms$Item_MRP + 0.5, 0)
 ```
 ### Factorize
 ```{r}
-cols <- c("Item_Fat_Content","Item_Type","Outlet_Location_Type","Outlet_Type","Outlet_Years","Item_Attribute","Outlet_Identifier")
+cols <- c("Item_Fat_Content", "Item_Type",    "Outlet_Location_Type",
+          "Outlet_Type",      "Outlet_Years", "Item_Attribute",      
+          "Outlet_Identifier")
 for (i in cols) {
-  all_bms[,i] <- factor(all_bms[,i])
+  all_bms[ , i] <- factor(all_bms[ , i])
 }
 ```
 
@@ -101,7 +103,8 @@ test_val  <- train[-ind, ]
 ```
 ### Build Model
 ```{r}
-myformula <- Item_Sales_Vol ~ Outlet_Type + Item_Visibility + Outlet_Location_Type + Item_MRP + Item_Type + Outlet_Years + Outlet_Size
+myformula <- Item_Sales_Vol ~ Outlet_Type + Item_Visibility + Outlet_Location_Type + 
+                              Item_MRP + Item_Type + Outlet_Years + Outlet_Size
 
 model.rmse <- function(pred, act){
   sqrt(sum((act - pred)^2)/length(act))
@@ -114,13 +117,14 @@ fit.tr <- rpart(myformula,
                 method = "anova")
 summary(fit.tr)
 rpart.plot(fit.tr)
-pred  <- predict(fit.tr,test_val)
-model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
 
-pred.test <- predict(fit.tr,test)
-submit    <- data.frame(Item_Identifier = test.data$Item_Identifier,
+pred  <- predict(fit.tr, test_val)
+model.rmse(pred * test_val$Item_MRP, test_val$Item_Outlet_Sales)
+
+pred.test <- predict(fit.tr, test)
+submit    <- data.frame(Item_Identifier = test.data$Item_Identifier, 
                         Outlet_Identifier = test.data$Outlet_Identifier, 
-                        Item_Outlet_Sales = pred.test*test$Item_MRP)
+                        Item_Outlet_Sales = pred.test * test$Item_MRP)
 write.csv(submit, file = "dtree.csv", row.names = FALSE)
 ```
 #### Model 2: Random Forest
@@ -130,12 +134,11 @@ fit.rf <- randomForest(myformula,
                        data = train_val, 
                        ntree=500)
 summary(fit.rf)
-pred <- predict(fit.rf,test_val)
-model.rmse(pred*test_val$Item_MRP,test_val$Item_Outlet_Sales)
+pred <- predict(fit.rf, test_val)
+model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
 
-
-pred.test <- predict(fit.rf,test)
-submit <- data.frame(Item_Identifier = test.data$Item_Identifier, Outlet_Identifier = test.data$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
+pred.test <- predict(fit.rf, test)
+submit <- data.frame(Item_Identifier = test.data$Item_Identifier, Outlet_Identifier = test.data$Outlet_Identifier, Item_Outlet_Sales=pred.test * test$Item_MRP)
 write.csv(submit, file = "rf.csv", row.names = FALSE)
 ```
 #### Model 3: GBM
@@ -148,51 +151,53 @@ fit.gbm <- train(myformula,
                  method="gbm", 
                  verbose=FALSE)
 summary(fit.gbm)
-pred <- predict(fit.gbm,test_val)
-model.rmse(pred*test_val$Item_MRP,test_val$Item_Outlet_Sales)
+pred <- predict(fit.gbm, test_val)
+model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
 
-pred.test <- predict(fit.gbm,test)
-submit <- data.frame(Item_Identifier = test$Item_Identifier, Outlet_Identifier = test$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
+pred.test <- predict(fit.gbm, test)
+submit <- data.frame(Item_Identifier = test$Item_Identifier, 
+                     Outlet_Identifier = test$Outlet_Identifier, 
+                     Item_Outlet_Sales = pred.test*test$Item_MRP)
 write.csv(submit, file = "gbm5cv.csv", row.names = FALSE)
 ```
 #### Model 4: xgboost
 ##### Step 1: Sparse Matrix
 ```{r}
-mymatrix <- function(train){
-  matrix_num <- train[,c("Item_Visibility","Item_MRP")]
-  matrix_num <- cbind(matrix_num,
-                      model.matrix(~Outlet_Type-1,train),
-                      model.matrix(~Outlet_Location_Type-1,train),
-                      model.matrix(~Outlet_Size-1,train),
-                      model.matrix(~Item_Type-1,train),
-                      model.matrix(~Outlet_Years-1,train)
+mymatrix    <- function(train){
+matrix_num  <- train[ , c("Item_Visibility", "Item_MRP")]
+matrix_num  <- cbind(matrix_num,
+                      model.matrix(~ Outlet_Type - 1, train),
+                      model.matrix(~ Outlet_Location_Type - 1, train),
+                      model.matrix(~ Outlet_Size - 1, train),
+                      model.matrix(~ Item_Type - 1, train),
+                      model.matrix(~ Outlet_Years - 1, train)
                       )
   return(data.matrix(matrix_num))
 }
 
-#获取每个数据集的稀疏矩阵
-xgb.train_val <- mymatrix(train_val)
-xgb.test_val <- mymatrix(test_val)
-xgb.test <- mymatrix(test)
 
-#生成用于xgboots模型的DMatrix
-#注意，预测变量集和响应变量是要分开的
-dtrain_val <- xgb.DMatrix(data = xgb.train_val,label=train_val$Item_Sales_Vol)
-dtest_val <- xgb.DMatrix(data = xgb.test_val,label=test_val$Item_Sales_Vol)
-dtest_sub <- xgb.DMatrix(data = xgb.test)
+xgb.train_val <- mymatrix(train_val)
+xgb.test_val  <- mymatrix(test_val)
+xgb.test      <- mymatrix(test)
+
+dtrain_val  <- xgb.DMatrix(data = xgb.train_val, label=train_val$Item_Sales_Vol)
+dtest_val   <- xgb.DMatrix(data = xgb.test_val, label=test_val$Item_Sales_Vol)
+dtest_sub   <- xgb.DMatrix(data = xgb.test)
 ```
 
 ##### Prelimilary
 ```{r}
-model <- xgboost(data = dtrain_val,nround = 5)
+model <- xgboost(data = dtrain_val, nround = 5)
 
 summary(model)
-pred <- predict(model,dtest_val)
-model.rmse(pred*test_val$Item_MRP,test_val$Item_Outlet_Sales)
-xgb.importance(colnames(xgb.train_val),model)
+pred      <- predict(model,dtest_val)
+model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
+xgb.importance(colnames(xgb.train_val), model)
 
 pred.test <- predict(model,dtest_sub)
-submit <- data.frame(Item_Identifier = test$Item_Identifier, Outlet_Identifier = test$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
+submit    <- data.frame(Item_Identifier = test$Item_Identifier, 
+                        Outlet_Identifier = test$Outlet_Identifier,
+                        Item_Outlet_Sales = pred.test * test$Item_MRP)
 write.csv(submit, file = "xgb.csv", row.names = FALSE)
 ```
 ##### Optimized
@@ -204,10 +209,12 @@ model_tuned <- xgboost(data = dtrain_val,
 summary(model_tuned)
 pred <- predict(model_tuned,dtest_val)
 model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
-xgb.importance(colnames(xgb.train_val),model_tuned)
+xgb.importance(colnames(xgb.train_val), model_tuned)
 
 pred.test <- predict(model_tuned,dtest_sub)
-submit <- data.frame(Item_Identifier = test$Item_Identifier, Outlet_Identifier = test$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
+submit <- data.frame(Item_Identifier = test$Item_Identifier, 
+                     Outlet_Identifier = test$Outlet_Identifier, 
+                     Item_Outlet_Sales = pred.test * test$Item_MRP)
 write.csv(submit, file = "xgbn10d5.csv", row.names = FALSE)
 ```
 
