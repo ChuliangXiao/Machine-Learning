@@ -104,7 +104,7 @@ test_val  <- train[-ind, ]
 ### Build Model
 ```{r}
 myformula <- Item_Sales_Vol ~ Outlet_Type + Item_Visibility + Outlet_Location_Type + 
-                              Item_MRP + Item_Type + Outlet_Years + Outlet_Size
+  Item_MRP + Item_Type + Outlet_Years + Outlet_Size
 
 model.rmse <- function(pred, act){
   sqrt(sum((act - pred)^2)/length(act))
@@ -130,36 +130,36 @@ write.csv(submit, file = "dtree.csv", row.names = FALSE)
 #### Model 2: Random Forest
 ```{r}
 set.seed(2345)
-fit.rf <- randomForest(myformula, 
+fit.rf  <- randomForest(myformula, 
                        data = train_val, 
-                       ntree=500)
+                       ntree = 500)
 summary(fit.rf)
-pred <- predict(fit.rf, test_val)
+pred    <- predict(fit.rf, test_val)
 model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
 
 pred.test <- predict(fit.rf, test)
-submit <- data.frame(Item_Identifier = test.data$Item_Identifier, 
-                     Outlet_Identifier = test.data$Outlet_Identifier, 
-                     Item_Outlet_Sales = pred.test * test$Item_MRP)
+submit    <- data.frame(Item_Identifier = test.data$Item_Identifier, 
+                        Outlet_Identifier = test.data$Outlet_Identifier, 
+                        Item_Outlet_Sales = pred.test * test$Item_MRP)
 write.csv(submit, file = "rf.csv", row.names = FALSE)
 ```
 #### Model 3: GBM
 ```{r}
-Ctrl <- trainControl(method="repeatedcv", number=5, repeats=5)
+Ctrl    <- trainControl(method = "repeatedcv", number = 5, repeats = 5)
 set.seed(3456)
 fit.gbm <- train(myformula, 
                  data = train_val, 
-                 trControl=Ctrl, 
-                 method="gbm", 
-                 verbose=FALSE)
+                 trControl = Ctrl, 
+                 method = "gbm", 
+                 verbose = FALSE)
 summary(fit.gbm)
-pred <- predict(fit.gbm, test_val)
+pred    <- predict(fit.gbm, test_val)
 model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
 
 pred.test <- predict(fit.gbm, test)
-submit <- data.frame(Item_Identifier = test$Item_Identifier, 
-                     Outlet_Identifier = test$Outlet_Identifier, 
-                     Item_Outlet_Sales = pred.test*test$Item_MRP)
+submit    <- data.frame(Item_Identifier = test$Item_Identifier, 
+                        Outlet_Identifier = test$Outlet_Identifier, 
+                        Item_Outlet_Sales = pred.test*test$Item_MRP)
 write.csv(submit, file = "gbm5cv.csv", row.names = FALSE)
 ```
 #### Model 4: xgboost
@@ -189,7 +189,7 @@ dtest_sub   <- xgb.DMatrix(data = xgb.test)
 
 ##### Prelimilary
 ```{r}
-model <- xgboost(data = dtrain_val, nround = 5)
+model     <- xgboost(data = dtrain_val, nround = 5)
 
 summary(model)
 pred      <- predict(model,dtest_val)
