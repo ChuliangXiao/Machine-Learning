@@ -1,0 +1,160 @@
+---
+title: "Predictive Model"
+author: "CXiao"
+date: "March 29, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###Load libraries
+```{r message = F, warning = F}
+xlib  <- c("tidyverse", "grid", "gridExtra", "caret", "randomForest", "xgboost", "Hmisc", "rpart", "rpart.plot")
+lib   <- lapply(xlib, library, character.only = TRUE) # load the required packages
+```
+###Load Data
+```{r}
+train.data  <- read.csv("Train_UWu5bXk.csv", stringsAsFactors = F)
+test.data   <- read.csv("Test_u94Q5KV.csv", stringsAsFactors = F)
+test.data$Item_Outlet_Sales <- NA
+
+all_bms <- rbind(train.data, test.data)
+```
+###Data Cleaning
+####Missing Values: Item_Weight
+```{r}
+tmp <- aggregate(Item_Weight~Item_Identifier, data = all_bms, FUN = mean)
+#a <- group_by(all_bms, Item_Identifier) %>%
+#  summarise(Item_Weight = mean(Item_Weight, na.rm = T))
+
+for (i in which(is.na(all_bms$Item_Weight))) {
+  all_bms$Item_Weight[i] <- tmp$Item_Weight[tmp$Item_Identifier == all_bms$Item_Identifier[i]]
+}
+
+#sum(is.na(all_bms$Item_Weight))
+```
+
+####Missing Values: Outlet_Size
+```{r}
+fit <- rpart(factor(Outlet_Size)~Outlet_Type, 
+             data = all_bms[all_bms$Outlet_Size != "", ], 
+             method = "class")
+pred <- predict(fit, 
+                all_bms[all_bms$Outlet_Size=="", ], 
+                type = "class")
+all_bms$Outlet_Size[all_bms$Outlet_Size == ""] <- as.vector(pred)
+
+table(all_bms$Outlet_Size, all_bms$Outlet_Identifier)
+```
+####classification: Unify
+```{r}
+all_bms$Item_Fat_Content[all_bms$Item_Fat_Content %in% 
+                           c("LF","low fat")] <- "Low Fat"
+all_bms$Item_Fat_Content[all_bms$Item_Fat_Content %in% 
+                           c("reg")] <- "Regular"
+table(all_bms$Item_Fat_Content)
+```
+
+####classification: Additional Infor
+```{r}
+all_bms$Item_Attribute <-  factor(substr(all_bms$Item_Identifier, 1, 2))
+table(all_bms$Item_Attribute)
+all_bms$Item_Fat_Content[all_bms$Item_Attribute == "NC"] <- "Non-Food"
+table(all_bms$Item_Fat_Content)
+```
+####Visibility
+```{r}
+tmp3 <- aggregate(Item_Visibility~Outlet_Identifier,data = all_bms,FUN = mean)
+for (i in which(all_bms$Item_Visibility == 0)) {
+  all_bms$Item_Visibility[i] <- tmp3$Item_Visibility[tmp3$Outlet_Identifier == all_bms$Outlet_Identifier[i]]
+}
+sum(all_bms$Item_Visibility==0)
+```
+####New Establish Year
+```{r}
+all_bms$Outlet_Years <- 2013 - all_bms$Outlet_Establishment_Year
+```
+
+###Predictor: Item_Sale_Volumn
+```{r}
+all_bms$Item_Sales_Vol <- round(all_bms$Item_Outlet_Sales/all_bms$Item_MRP+0.5,0)
+```
+###Facterize
+```{r}
+cols <- c("Item_Fat_Content","Item_Type","Outlet_Location_Type","Outlet_Type","Outlet_Years","Item_Attribute","Outlet_Identifier")
+for (i in cols) {
+  all_bms[,i] <- factor(all_bms[,i])
+}
+```
+
+###Split
+```{r}
+train <- all_bms[!is.na(all_bms$Item_Outlet_Sales), ]
+test  <- all_bms[is.na(all_bms$Item_Outlet_Sales), ]
+
+set.seed(1234)
+ind       <- createDataPartition(train$Item_Sales_Vol, p=.7, list = FALSE)
+train_val <- train[ind, ]
+test_val  <- train[-ind, ]
+```
+###Build Model
+```{r}
+myformula <- Item_Sales_Vol ~ Outlet_Type + Item_Visibility + Outlet_Location_Type + Item_MRP + Item_Type + Outlet_Years + Outlet_Size
+
+model.rmse <- function(pred, act){
+  sqrt(sum((act - pred)^2)/length(act))
+}
+```
+####Model 1: Decision Tree
+```{r}
+fit.tr <- rpart(myformula, 
+                data = train_val, 
+                method = "anova")
+summary(fit.tr)
+rpart.plot(fit.tr)
+pred  <- predict(fit.tr,test_val)
+model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
+
+pred.test <- predict(fit.tr,test)
+submit    <- data.frame(Item_Identifier = test.data$Item_Identifier,
+                        Outlet_Identifier = test.data$Outlet_Identifier, 
+                        Item_Outlet_Sales = pred.test*test$Item_MRP)
+write.csv(submit, file = "dtree.csv", row.names = FALSE)
+```
+####Modle2: Random Forest
+```{r}
+set.seed(2345)
+fit.rf <- randomForest(myformula, 
+                       data = train_val, 
+                       ntree=500)
+summary(fit.rf)
+pred <- predict(fit.rf,test_val)
+model.rmse(pred*test_val$Item_MRP,test_val$Item_Outlet_Sales)
+
+
+pred.test <- predict(fit.rf,test)
+submit <- data.frame(Item_Identifier = test.data$Item_Identifier, Outlet_Identifier = test.data$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
+write.csv(submit, file = "rf.csv", row.names = FALSE)
+```
+####Model 3: GBM
+```{r}
+Ctrl <- trainControl(method="repeatedcv", number=5, repeats=5)
+set.seed(3456)
+fit.gbm <- train(myformula, 
+                 data = train_val, 
+                 trControl=Ctrl, 
+                 method="gbm", 
+                 verbose=FALSE)
+summary(fit.gbm)
+pred <- predict(fit.gbm,test_val)
+model.rmse(pred*test_val$Item_MRP,test_val$Item_Outlet_Sales)
+
+pred.test <- predict(fit.gbm,test)
+submit <- data.frame(Item_Identifier = test$Item_Identifier, Outlet_Identifier = test$Outlet_Identifier,Item_Outlet_Sales=pred.test*test$Item_MRP)
+write.csv(submit, file = "gbm5cv.csv", row.names = FALSE)
+```
+
+
+
