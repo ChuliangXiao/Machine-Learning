@@ -72,7 +72,7 @@ for (i in which(all_bms$Item_Visibility == 0)) {
 }
 sum(all_bms$Item_Visibility==0)
 ```
-#### New Establish Year Column
+#### New Year Column
 ```{r}
 all_bms$Outlet_Years <- 2013 - all_bms$Outlet_Establishment_Year
 ```
@@ -81,7 +81,7 @@ all_bms$Outlet_Years <- 2013 - all_bms$Outlet_Establishment_Year
 ```{r}
 all_bms$Item_Sales_Vol <- round(all_bms$Item_Outlet_Sales/all_bms$Item_MRP+0.5,0)
 ```
-### Facterize
+### Factorize
 ```{r}
 cols <- c("Item_Fat_Content","Item_Type","Outlet_Location_Type","Outlet_Type","Outlet_Years","Item_Attribute","Outlet_Identifier")
 for (i in cols) {
