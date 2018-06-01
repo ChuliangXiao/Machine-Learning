@@ -1,6 +1,8 @@
 ---
 date: "March 29, 2018"
-output: html_document
+output:
+  md_document:
+    variant: markdown_github
 ---
 
 ```{r setup, include=FALSE}
@@ -139,7 +141,7 @@ all_bms7 <- all_bms6 %>%
 ```
 ### Factorize
 ```{r}
-cols <- c("Item_Fat_Content", "Item_Type", "Outlet_Location_Type",
+cols <- c("Item_Fat_Content", "Item_Type", "Outlet_Location_Type", "Outlet_Size",
           "Outlet_Type", "Outlet_Years", "Item_Attribute", "Outlet_Identifier")
 
 all_bms8 <- all_bms7 %>% 
@@ -160,8 +162,8 @@ test_val  <- train[-ind, ]
 
 ### Build Model
 ```{r}
-myformula <- Item_Sales_Vol ~ Outlet_Type + Item_Visibility + Outlet_Location_Type + 
-  Item_MRP + Item_Type + Outlet_Years + Outlet_Size
+myformula <- Item_Sales_Vol ~ Outlet_Type + Item_Visibility + 
+  Outlet_Location_Type + Item_MRP + Item_Type + Outlet_Years + Outlet_Size
 
 model.rmse <- function(pred, act){
   sqrt(sum((act - pred)^2)/length(act))
@@ -190,7 +192,7 @@ write.csv(submit, file = "dtree.csv", row.names = FALSE)
 ```{r}
 set.seed(2345)
 fit.rf  <- randomForest(myformula, 
-                       data = train_val, 
+                       data = train_val,
                        ntree = 500)
 summary(fit.rf)
 pred    <- predict(fit.rf, test_val)
