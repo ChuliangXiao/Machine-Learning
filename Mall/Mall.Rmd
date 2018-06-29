@@ -1,7 +1,5 @@
 ---
-output:
-  md_document:
-    variant: markdown_github
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -16,8 +14,8 @@ lib   <- lapply(xlib, library, character.only = TRUE) # load the required packag
 
 ### Load Data
 ```{r}
-train.data  <- read_csv("Train_UWu5bXk.csv")
-test.data   <- read_csv("Test_u94Q5KV.csv")
+train.data  <- read_csv("data/Train_UWu5bXk.csv")
+test.data   <- read_csv("data/Test_u94Q5KV.csv")
 test.data$Item_Outlet_Sales <- NA
 
 all_bms <- bind_rows(train.data, test.data)
@@ -138,6 +136,7 @@ all_bms6 <- all_bms5 %>%
 all_bms7 <- all_bms6 %>%
   mutate(Item_Sales_Vol = round(Item_Outlet_Sales / Item_MRP + 0.5, 0))
 ```
+
 ### Factorize
 ```{r}
 cols <- c("Item_Fat_Content", "Item_Type", "Outlet_Location_Type", "Outlet_Size",
@@ -152,6 +151,9 @@ all_bms8 <- all_bms7 %>%
 all_bms <- all_bms8
 train <- all_bms[!is.na(all_bms$Item_Outlet_Sales), ]
 test  <- all_bms[is.na(all_bms$Item_Outlet_Sales), ]
+
+save(train, file = "output/train_clean.RData")
+save(test,  file = "output/test_clean.RData")
 
 set.seed(1234)
 ind       <- createDataPartition(train$Item_Sales_Vol, p = .7, list = FALSE)
@@ -184,7 +186,7 @@ pred.test <- predict(fit.tr, test)
 submit    <- data.frame(Item_Identifier = test.data$Item_Identifier, 
                         Outlet_Identifier = test.data$Outlet_Identifier, 
                         Item_Outlet_Sales = pred.test * test$Item_MRP)
-write.csv(submit, file = "dtree.csv", row.names = FALSE)
+write.csv(submit, file = "output/dtree.csv", row.names = FALSE)
 ```
 
 #### Model 2: Random Forest
@@ -201,7 +203,7 @@ pred.test <- predict(fit.rf, test)
 submit    <- data.frame(Item_Identifier = test.data$Item_Identifier, 
                         Outlet_Identifier = test.data$Outlet_Identifier, 
                         Item_Outlet_Sales = pred.test * test$Item_MRP)
-write.csv(submit, file = "rf.csv", row.names = FALSE)
+write.csv(submit, file = "output/rf.csv", row.names = FALSE)
 ```
 
 #### Model 3: GBM
@@ -221,7 +223,7 @@ pred.test <- predict(fit.gbm, test)
 submit    <- data.frame(Item_Identifier = test$Item_Identifier, 
                         Outlet_Identifier = test$Outlet_Identifier, 
                         Item_Outlet_Sales = pred.test*test$Item_MRP)
-write.csv(submit, file = "gbm5cv.csv", row.names = FALSE)
+write.csv(submit, file = "output/gbm5cv.csv", row.names = FALSE)
 ```
 
 #### Model 4: xgboost
@@ -258,11 +260,11 @@ pred      <- predict(model,dtest_val)
 model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
 xgb.importance(colnames(xgb.train_val), model)
 
-pred.test <- predict(model,dtest_sub)
+pred.test <- predict(model, dtest_sub)
 submit    <- data.frame(Item_Identifier = test$Item_Identifier, 
                         Outlet_Identifier = test$Outlet_Identifier,
                         Item_Outlet_Sales = pred.test * test$Item_MRP)
-write.csv(submit, file = "xgb.csv", row.names = FALSE)
+write.csv(submit, file = "output/xgb.csv", row.names = FALSE)
 ```
 
 ##### Optimization
@@ -276,11 +278,11 @@ pred <- predict(model_tuned,dtest_val)
 model.rmse(pred*test_val$Item_MRP, test_val$Item_Outlet_Sales)
 xgb.importance(colnames(xgb.train_val), model_tuned)
 
-pred.test <- predict(model_tuned,dtest_sub)
+pred.test <- predict(model_tuned, dtest_sub)
 submit <- data.frame(Item_Identifier = test$Item_Identifier, 
                      Outlet_Identifier = test$Outlet_Identifier, 
                      Item_Outlet_Sales = pred.test * test$Item_MRP)
-write.csv(submit, file = "xgbn10d5.csv", row.names = FALSE)
+write.csv(submit, file = "output/xgbn10d5.csv", row.names = FALSE)
 ```
 
 

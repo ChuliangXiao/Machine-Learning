@@ -1,3 +1,4 @@
+
 ### Load library
 
 ``` r
@@ -8,7 +9,7 @@ lib   <- lapply(xlib, library, character.only = TRUE) # load the required packag
 ### Load Data
 
 ``` r
-train.data  <- read_csv("Train_UWu5bXk.csv")
+train.data  <- read_csv("data/Train_UWu5bXk.csv")
 ```
 
     ## Parsed with column specification:
@@ -28,7 +29,7 @@ train.data  <- read_csv("Train_UWu5bXk.csv")
     ## )
 
 ``` r
-test.data   <- read_csv("Test_u94Q5KV.csv")
+test.data   <- read_csv("data/Test_u94Q5KV.csv")
 ```
 
     ## Parsed with column specification:
@@ -269,6 +270,9 @@ all_bms <- all_bms8
 train <- all_bms[!is.na(all_bms$Item_Outlet_Sales), ]
 test  <- all_bms[is.na(all_bms$Item_Outlet_Sales), ]
 
+save(train, file = "output/train_clean.RData")
+save(test,  file = "output/test_clean.RData")
+
 set.seed(1234)
 ind       <- createDataPartition(train$Item_Sales_Vol, p = .7, list = FALSE)
 train_val <- train[ind, ]
@@ -344,7 +348,7 @@ summary(fit.tr)
 rpart.plot(fit.tr)
 ```
 
-![](Predictive_Model_files/figure-markdown_github/unnamed-chunk-11-1.png)
+![](Mall_files/figure-markdown_github/unnamed-chunk-11-1.png)
 
 ``` r
 pred  <- predict(fit.tr, test_val)
@@ -358,7 +362,7 @@ pred.test <- predict(fit.tr, test)
 submit    <- data.frame(Item_Identifier = test.data$Item_Identifier, 
                         Outlet_Identifier = test.data$Outlet_Identifier, 
                         Item_Outlet_Sales = pred.test * test$Item_MRP)
-write.csv(submit, file = "dtree.csv", row.names = FALSE)
+write.csv(submit, file = "output/dtree.csv", row.names = FALSE)
 ```
 
 #### Model 2: Random Forest
@@ -403,7 +407,7 @@ pred.test <- predict(fit.rf, test)
 submit    <- data.frame(Item_Identifier = test.data$Item_Identifier, 
                         Outlet_Identifier = test.data$Outlet_Identifier, 
                         Item_Outlet_Sales = pred.test * test$Item_MRP)
-write.csv(submit, file = "rf.csv", row.names = FALSE)
+write.csv(submit, file = "output/rf.csv", row.names = FALSE)
 ```
 
 #### Model 3: GBM
@@ -419,7 +423,7 @@ fit.gbm <- train(myformula,
 summary(fit.gbm)
 ```
 
-![](Predictive_Model_files/figure-markdown_github/unnamed-chunk-13-1.png)
+![](Mall_files/figure-markdown_github/unnamed-chunk-13-1.png)
 
     ##                                                           var     rel.inf
     ## Outlet_TypeSupermarket Type3     Outlet_TypeSupermarket Type3 42.01964457
@@ -467,7 +471,7 @@ pred.test <- predict(fit.gbm, test)
 submit    <- data.frame(Item_Identifier = test$Item_Identifier, 
                         Outlet_Identifier = test$Outlet_Identifier, 
                         Item_Outlet_Sales = pred.test*test$Item_MRP)
-write.csv(submit, file = "gbm5cv.csv", row.names = FALSE)
+write.csv(submit, file = "output/gbm5cv.csv", row.names = FALSE)
 ```
 
 #### Model 4: xgboost
@@ -566,11 +570,11 @@ xgb.importance(colnames(xgb.train_val), model)
     ##                            Feature         Gain        Cover   Frequency
 
 ``` r
-pred.test <- predict(model,dtest_sub)
+pred.test <- predict(model, dtest_sub)
 submit    <- data.frame(Item_Identifier = test$Item_Identifier, 
                         Outlet_Identifier = test$Outlet_Identifier,
                         Item_Outlet_Sales = pred.test * test$Item_MRP)
-write.csv(submit, file = "xgb.csv", row.names = FALSE)
+write.csv(submit, file = "output/xgb.csv", row.names = FALSE)
 ```
 
 ##### Optimization
@@ -652,9 +656,9 @@ xgb.importance(colnames(xgb.train_val), model_tuned)
     ##                            Feature         Gain        Cover   Frequency
 
 ``` r
-pred.test <- predict(model_tuned,dtest_sub)
+pred.test <- predict(model_tuned, dtest_sub)
 submit <- data.frame(Item_Identifier = test$Item_Identifier, 
                      Outlet_Identifier = test$Outlet_Identifier, 
                      Item_Outlet_Sales = pred.test * test$Item_MRP)
-write.csv(submit, file = "xgbn10d5.csv", row.names = FALSE)
+write.csv(submit, file = "output/xgbn10d5.csv", row.names = FALSE)
 ```

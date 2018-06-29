@@ -103,12 +103,12 @@ table(predDT, Train$Species)
 
 ``` r
 #Validate againt the Test data part
-testRF  <- predict(fitDT, Test)
-table(testRF, Test$Species)
+testDT  <- predict(fitDT, Test)
+table(testDT, Test$Species)
 ```
 
     ##             
-    ## testRF       setosa versicolor virginica
+    ## testDT       setosa versicolor virginica
     ##   setosa         25          0         0
     ##   versicolor      0         21         1
     ##   virginica       0          4        24
@@ -121,6 +121,28 @@ rpart.plot(fitDT$finalModel)
 ```
 
 ![](DTvsRF_files/figure-markdown_github/plot%20DT-1.png)
+
+### Where are the misclassifications
+
+``` r
+pred_spec <- data.frame(pred_spec = predDT)
+Train_c <- Train %>% 
+  bind_cols(pred_spec) %>% 
+  mutate(classify  = (pred_spec == Species))
+
+g1 <- ggplot(Train_c, aes(Petal.Length, Petal.Width, color = classify)) + 
+  geom_point(aes(shape = pred_spec)) +
+  geom_jitter() +
+  theme(legend.position = "top")
+
+g2 <- ggplot(Train_c, aes(Sepal.Length, Sepal.Width, color = classify)) + 
+  geom_point(aes(shape = pred_spec)) +
+  geom_jitter() +
+  theme(legend.position = "top")
+gridExtra::grid.arrange(g1, g2, ncol = 2)
+```
+
+![](DTvsRF_files/figure-markdown_github/misclassifications-1.png) The
 
 Random Forest model from `randomForest`
 ---------------------------------------
@@ -146,22 +168,91 @@ table(predRF, Train$Species)
 
 ``` r
 #Validate againt the Test data part
-predRF  <- predict(fitRF, Test)
-table(predRF, Test$Species)
+testRF  <- predict(fitRF, Test)
+table(testRF, Test$Species)
 ```
 
     ##             
-    ## predRF       setosa versicolor virginica
+    ## testRF       setosa versicolor virginica
     ##   setosa         25          0         0
     ##   versicolor      0         23         2
     ##   virginica       0          2        23
 
+Uneven split
+------------
+
+``` r
+set.seed(1000)
+ind1   <- createDataPartition(iris$Species, p = .8, list = FALSE)
+Train1 <- iris[ind1, ]
+Test1  <- iris[-ind1, ]
+
+fitDT1   <- train(Species ~ ., method = "rpart", data = Train1)
+
+#Validate againt the Train data part
+predDT1  <- predict(fitDT1, Train1)
+table(predDT1, Train1$Species)
+```
+
+    ##             
+    ## predDT1      setosa versicolor virginica
+    ##   setosa         40          0         0
+    ##   versicolor      0         37         2
+    ##   virginica       0          3        38
+
+``` r
+#Validate againt the Test data part
+testDT1  <- predict(fitDT1, Test1)
+table(testDT1, Test1$Species)
+```
+
+    ##             
+    ## testDT1      setosa versicolor virginica
+    ##   setosa         10          0         0
+    ##   versicolor      0          9         1
+    ##   virginica       0          1         9
+
+``` r
+set.seed(1001)
+fitRF1   <- train(Species ~ ., method = "rf", data = Train1)
+#Validate againt the Train data part
+predRF1  <- predict(fitRF1, Train1)
+table(predRF1, Train1$Species)
+```
+
+    ##             
+    ## predRF1      setosa versicolor virginica
+    ##   setosa         40          0         0
+    ##   versicolor      0         40         0
+    ##   virginica       0          0        40
+
+``` r
+#Validate againt the Test data part
+testRF1  <- predict(fitRF1, Test1)
+table(testRF1, Test1$Species)
+```
+
+    ##             
+    ## testRF1      setosa versicolor virginica
+    ##   setosa         10          0         0
+    ##   versicolor      0          9         0
+    ##   virginica       0          1        10
+
 Summary
 -------
 
-Misclassifications of 75 (Without any parameter tuning)
+Misclassifications (Without any parameter tuning)
+
+-   Even split (75/75)
 
 | Model | Decision Tree | Random Forest |
 |-------|---------------|---------------|
 | Train | 2             | 0             |
 | Test  | 5             | 4             |
+
+-   0.8 split (120/30)
+
+| Model | Decision Tree | Random Forest |
+|-------|---------------|---------------|
+| Train | 5             | 0             |
+| Test  | 2             | 1             |

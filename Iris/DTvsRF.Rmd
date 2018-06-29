@@ -62,8 +62,8 @@ fitDT   <- train(Species ~ ., method = "rpart", data = Train)
 predDT  <- predict(fitDT, Train)
 table(predDT, Train$Species)
 #Validate againt the Test data part
-testRF  <- predict(fitDT, Test)
-table(testRF, Test$Species)
+testDT  <- predict(fitDT, Test)
+table(testDT, Test$Species)
 ```
 
 ### Look into the DT model 
@@ -71,6 +71,26 @@ table(testRF, Test$Species)
 library(rpart.plot)
 rpart.plot(fitDT$finalModel)
 ```
+
+### Where are the misclassifications  
+```{r misclassifications, fig.width = 10}
+pred_spec <- data.frame(pred_spec = predDT)
+Train_c <- Train %>% 
+  bind_cols(pred_spec) %>% 
+  mutate(classify  = (pred_spec == Species))
+
+g1 <- ggplot(Train_c, aes(Petal.Length, Petal.Width, color = classify)) + 
+  geom_point(aes(shape = pred_spec)) +
+  geom_jitter() +
+  theme(legend.position = "top")
+
+g2 <- ggplot(Train_c, aes(Sepal.Length, Sepal.Width, color = classify)) + 
+  geom_point(aes(shape = pred_spec)) +
+  geom_jitter() +
+  theme(legend.position = "top")
+gridExtra::grid.arrange(g1, g2, ncol = 2)
+```
+The
 
 ## Random Forest model from `randomForest`
 ```{r RF Model}
@@ -84,15 +104,50 @@ fitRF   <- train(Species ~ ., method = "rf", data = Train)
 predRF  <- predict(fitRF, Train)
 table(predRF, Train$Species)
 #Validate againt the Test data part
-predRF  <- predict(fitRF, Test)
-table(predRF, Test$Species)
+testRF  <- predict(fitRF, Test)
+table(testRF, Test$Species)
 ```
 
+## Uneven split
+```{r Uneven split}
+set.seed(1000)
+ind1   <- createDataPartition(iris$Species, p = .8, list = FALSE)
+Train1 <- iris[ind1, ]
+Test1  <- iris[-ind1, ]
+
+fitDT1   <- train(Species ~ ., method = "rpart", data = Train1)
+
+#Validate againt the Train data part
+predDT1  <- predict(fitDT1, Train1)
+table(predDT1, Train1$Species)
+#Validate againt the Test data part
+testDT1  <- predict(fitDT1, Test1)
+table(testDT1, Test1$Species)
+
+set.seed(1001)
+fitRF1   <- train(Species ~ ., method = "rf", data = Train1)
+#Validate againt the Train data part
+predRF1  <- predict(fitRF1, Train1)
+table(predRF1, Train1$Species)
+#Validate againt the Test data part
+testRF1  <- predict(fitRF1, Test1)
+table(testRF1, Test1$Species)
+```
+
+
 ## Summary 
-Misclassifications of 75 (Without any parameter tuning)   
+Misclassifications (Without any parameter tuning)   
+
+* Even split (75/75)
 
 | Model | Decision Tree | Random Forest |
 |---+---+---|
 | Train | 2 | 0 |
 | Test | 5 | 4 |
 
+* 0.8 split (120/30)
+
+| Model | Decision Tree | Random Forest |
+|---+---+---|
+| Train | 5 | 0 |
+| Test | 2 | 1 |

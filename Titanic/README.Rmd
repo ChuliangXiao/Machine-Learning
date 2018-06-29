@@ -1,0 +1,10 @@
+---
+title: "Titanic: Machine Learning from Disaster"
+output: github_document
+---
+
+Kaggle Link: https://www.kaggle.com/c/titanic  
+
+* Decision tree model (`rpart`) 
+* Boosting tree model (`xgboost`)   
+

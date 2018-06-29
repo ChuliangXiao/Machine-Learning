@@ -1,6 +1,6 @@
 ---
 title: "Titanic: Machine Learning from Disaster"
-output: html_notebook
+output: github_document
 ---
 ### Load packages
 ```{r package, warning = F, error = F}
@@ -10,7 +10,7 @@ library(rpart.plot)
 ```
 
 ### Load data
-```{r}
+```{r load data}
 train_df  <- read_csv("data/train.csv")
 test_df   <- read_csv("data/test.csv")
 ```
