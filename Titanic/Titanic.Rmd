@@ -1,0 +1,17 @@
+---
+title: "Titanic: Machine Learning from Disaster"
+output: html_notebook
+---
+### Load packages
+```{r package, warning = F, error = F}
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+```
+
+### Load data
+```{r}
+train_df  <- read_csv("data/train.csv")
+test_df   <- read_csv("data/test.csv")
+```
+
