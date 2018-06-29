@@ -1,0 +1,98 @@
+---
+title: "Decision Tree and Random Forest"
+subtitle: "Test case with the `iris` data"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# A test case with the `iris` data  
+
+The `datasets::iris` is a basic data set in R provided by [UCI's R.A. Fisher](https://archive.ics.uci.edu/ml/datasets/iris) 
+
+## Load libraries
+```{r library, message = F, warning = F}
+library(tidyverse)
+library(rpart)
+library(randomForest)
+library(caret)       # used to split the data
+```
+
+## Iris data description  
+```{r iris data description}
+str(iris)
+summary(iris)
+#Hmisc::describe(iris)
+```
+
+
+## A quick look at the data
+```{r quick plot, fig.width = 10}
+#qplot(Petal.Length, Petal.Width, colour = Species, data = iris)
+#qplot(Sepal.Length, Sepal.Width, colour = Species, data = iris)
+p1 <- ggplot(iris, aes(Petal.Length, Petal.Width)) + 
+  geom_point(aes(color = Species)) +
+  theme(legend.position = "top")
+p2 <- ggplot(iris, aes(Sepal.Length, Sepal.Width)) + 
+  geom_point(aes(color = Species)) +
+  theme(legend.position = "top")
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+
+
+## Split the data into the _Train_ part and the _Test_ part
+```{r Split iris data}
+set.seed(1234)
+ind   <- createDataPartition(iris$Species, p = .5, list = FALSE)
+Train <- iris[ind, ]
+Test  <- iris[-ind, ]
+```
+
+
+## Decision Tree model from `rpart`
+```{r DT Model}
+fitDT   <- train(Species ~ ., method = "rpart", data = Train)
+```
+
+### Validate and Test the DT model
+```{r Validat DT}
+#Validate againt the Train data part
+predDT  <- predict(fitDT, Train)
+table(predDT, Train$Species)
+#Validate againt the Test data part
+testRF  <- predict(fitDT, Test)
+table(testRF, Test$Species)
+```
+
+### Look into the DT model 
+```{r plot DT}
+library(rpart.plot)
+rpart.plot(fitDT$finalModel)
+```
+
+## Random Forest model from `randomForest`
+```{r RF Model}
+set.seed(2345)
+fitRF   <- train(Species ~ ., method = "rf", data = Train)
+```
+
+### Validate and Test the model
+```{r Validate RF}
+#Validate againt the Train data part
+predRF  <- predict(fitRF, Train)
+table(predRF, Train$Species)
+#Validate againt the Test data part
+predRF  <- predict(fitRF, Test)
+table(predRF, Test$Species)
+```
+
+## Summary 
+Misclassifications of 75 (Without any parameter tuning)   
+
+| Model | Decision Tree | Random Forest |
+|---+---+---|
+| Train | 2 | 0 |
+| Test | 5 | 4 |
+
