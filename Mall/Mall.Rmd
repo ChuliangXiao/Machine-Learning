@@ -1,5 +1,4 @@
 ---
-date: "March 29, 2018"
 output:
   md_document:
     variant: markdown_github
