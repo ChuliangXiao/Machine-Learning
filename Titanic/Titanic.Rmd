@@ -5,13 +5,110 @@ output: github_document
 ### Load packages
 ```{r package, warning = F, error = F}
 library(tidyverse)
-library(rpart)
-library(rpart.plot)
+library(caret)
 ```
 
 ### Load data
-```{r load data}
-train_df  <- read_csv("data/train.csv")
-test_df   <- read_csv("data/test.csv")
+```{r load data, message = F, warning = F}
+train_raw  <- read_csv("data/train.csv")
+test_raw   <- read_csv("data/test.csv")
 ```
+
+### Clean data
+```{r clean data}
+table(train_raw$Embarked, useNA = "ifany")
+train_df <- train_raw %>% 
+  mutate(Embarked = if_else(is.na(Embarked), "S",  Embarked),
+         missingAge = if_else(is.na(Age), "Y", "N"),
+         FamilySize = 1 + SibSp + Parch) %>% 
+  select(Survived, Pclass, Sex, Age, Fare, Embarked, missingAge, FamilySize) %>% 
+  mutate_at(vars(Survived, Pclass, Sex, Embarked, missingAge), as.factor)
+  
+table(train_df$Embarked, useNA = "ifany")
+```
+
+### Imput Missing Age
+```{r Imput Missing Age}
+# https://github.com/datasciencedojo/meetup/blob/master/intro_to_ml_with_r_and_caret/IntroToMachineLearning.R
+dummy.vars    <- dummyVars(~ ., data = train_df[, -1])
+train.dummy   <- predict(dummy.vars, train_df[, -1])
+
+# Now, impute!
+pre.process   <- preProcess(train.dummy, method = "bagImpute")
+imputed.data  <- predict(pre.process, train.dummy)
+
+train_df$Age  <- imputed.data[, 6]
+```
+
+### Split data
+```{r}
+set.seed(54321)
+indexes <- createDataPartition(train_df$Survived,
+                               times = 1,
+                               p = 0.7,
+                               list = FALSE)
+titanic.train <- train_df[ indexes, ]
+titanic.test  <- train_df[-indexes, ]
+
+
+# Examine the proportions of the Survived class lable across
+# the datasets.
+prop.table(table(train_df$Survived))
+prop.table(table(titanic.train$Survived))
+prop.table(table(titanic.test$Survived))
+```
+
+### Training
+```{r Training}
+train.control <- trainControl(method = "repeatedcv",
+                              number = 10,
+                              repeats = 3,
+                              search = "grid")
+
+
+# Leverage a grid search of hyperparameters for xgboost. See 
+# the following presentation for more information:
+# https://www.slideshare.net/odsc/owen-zhangopen-sourcetoolsanddscompetitions1
+tune.grid <- expand.grid(eta              = c(0.05, 0.075, 0.1),
+                         nrounds          = c(50, 75, 100),
+                         max_depth        = 6:8,
+                         min_child_weight = c(2.0, 2.25, 2.5),
+                         colsample_bytree = c(0.3, 0.4, 0.5),
+                         gamma            = 0,
+                         subsample        = 1)
+View(tune.grid)
+```
+
+
+### doSnow
+```{r doSNOW}
+library(doSNOW)
+cl <- makeCluster(4, type = "SOCK")
+# Register cluster so that caret will know to train in parallel.
+registerDoSNOW(cl)
+# Show parallel cores
+getDoParWorkers()
+```
+
+### Build XGBoost model
+```{r build model}
+xgb_caret <- train(Survived ~ ., 
+                   data      = titanic.train,
+                   method    = "xgbTree",
+                   tuneGrid  = tune.grid,
+                   trControl = train.control)
+stopCluster(cl)
+#xgb_caret
+```
+
+### Make predict
+```{r predit}
+preds <- predict(xgb_caret, titanic.test)
+
+# Use caret's confusionMatrix() function to estimate the 
+# effectiveness of this model on unseen, new data.
+confusionMatrix(preds, titanic.test$Survived)
+```
+
+
 
