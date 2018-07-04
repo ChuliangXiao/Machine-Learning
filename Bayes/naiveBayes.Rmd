@@ -1,0 +1,140 @@
+---
+title: "Naive Bayes Analysis"
+output: github_document
+---
+
+#### Load packages
+```{r package, warning = F, message = F}
+library(tidyverse)    # data manipulation
+library(rpart)        # decision tree
+library(randomForest)
+library(e1071)        # Naive Bayes algorithms
+library(mlbench)      # PimaIndiansDiabetes2 dataset
+library(caret)        # Impute missing values
+```
+
+#### Load `PimaIndiansDiabetes2`
+```{r PimaIndiansDiabetes2}
+data(PimaIndiansDiabetes2)
+PimaIndiansDiabetes2 <- as_tibble(PimaIndiansDiabetes2)
+str(PimaIndiansDiabetes2)
+summary(PimaIndiansDiabetes2)
+```
+
+#### Impute missing values with `caret`
+```{r imputing}
+preProc <- PimaIndiansDiabetes2 %>% 
+  select(-diabetes) %>% 
+  preProcess(method = "bagImpute")
+#col_diabetes <- PimaIndiansDiabetes2$diabetes
+PID2    <- predict(preProc, PimaIndiansDiabetes2[, -9]) %>% 
+  bind_cols(select(PimaIndiansDiabetes2, diabetes))
+
+#summary(PID2) # no missing value
+```
+
+#### Split PID2 into trani and test portions
+```{r split}
+set.seed(54321)
+index     <- createDataPartition(PID2$diabetes, p = 0.8, list = F)
+train_df  <- PID2[ index, ]
+test_df   <- PID2[-index, ]
+
+# Examine the proportions of the Survived class lable across
+# the datasets.
+table(PID2$diabetes) %>% prop.table()
+table(train_df$diabetes) %>% prop.table()
+table(test_df$diabetes) %>% prop.table()
+```
+
+#### Naive Bayes model
+```{r Bayes}
+mod1  <- naiveBayes(diabetes ~ ., data = train_df)
+pred1 <- predict(mod1, test_df)
+table(pred1, test_df$diabetes)
+```
+
+
+
+#### Valide model
+```{r validation}
+library(gmodels)
+# NB
+CrossTable(test_df$diabetes, pred1, prop.r = F, prop.c = F, prop.t = T, prop.chisq = F)
+# DT
+#CrossTable(test_df$diabetes, pred2, prop.r = F, prop.c = F, prop.t = T, prop.chisq = F)
+# RF
+#CrossTable(test_df$diabetes, pred3, prop.r = F, prop.c = F, prop.t = T, prop.chisq = F)
+```
+
+#### Display and Analyze ROC Curves `pROC`
+```{r message = F}
+library(pROC)
+pre <- predict(mod1, test_df, type = "raw")
+modROC <- roc(test_df$diabetes, pre[, 2])
+plot(modROC, print.auc = T, print.thres = T,
+     auc.polygon = T, max.auc.polygon = T, auc.polygon.col = "skyblue",
+     grid = c(0.1, 0.2), grid.col = c("green", "red"))
+```
+
+#### Comparison with other models
+##### Decision Tree and Random Forrest
+```{r comparison}
+#NB
+mod1  <- naiveBayes(diabetes ~ ., data = train_df)
+pred1 <- predict(mod1, test_df)
+table(pred1, test_df$diabetes)
+#DT
+mod2  <- rpart(diabetes ~ ., data = train_df, method = "class")
+pred2 <- predict(mod2, test_df, type = "class")
+table(pred2, test_df$diabetes)
+#RF
+mod3  <- randomForest(diabetes ~ ., data = train_df, ntree = 300)
+pred3 <- predict(mod3, test_df)
+table(pred3, test_df$diabetes)
+```
+
+##### Use `caret` wrapper with NB packages
+* `e1071`, `klaR`, `naivebayes` and `bnclassify`  
+
+```{r warning = F}
+Ctrl  <- trainControl(method = "cv", number = 10)
+set.seed(3456)
+mod4  <- train(diabetes ~ ., data = train_df, method = "nb", trControl = Ctrl)
+pred4 <- predict(mod4, test_df)
+table(pred4, test_df$diabetes)
+```
+
+##### Extreme Gradient Boosting 
+```{r Training}
+train.control <- trainControl(method = "repeatedcv", number = 10, repeats = 3,
+                              search = "grid")
+
+# Leverage a grid search of hyperparameters for xgboost. See 
+# the following presentation for more information:
+# https://www.slideshare.net/odsc/owen-zhangopen-sourcetoolsanddscompetitions1
+tune.grid <- expand.grid(eta              = c(0.05, 0.075, 0.1),
+                         nrounds          = c(50, 75, 100),
+                         max_depth        = 6:8,
+                         min_child_weight = c(2.0, 2.25, 2.5),
+                         colsample_bytree = c(0.3, 0.4, 0.5),
+                         gamma            = 0,
+                         subsample        = 1)
+library(doParallel)
+cl <- makeCluster(4)
+registerDoParallel(cl)
+
+
+mod5 <- train(diabetes ~ ., 
+                   data      = train_df,
+                   method    = "xgbTree",
+                   tuneGrid  = tune.grid,
+                   trControl = train.control)
+stopCluster(cl)
+
+pred5 <- predict(mod5, test_df)
+table(pred5, test_df$diabetes)
+# Use caret's confusionMatrix() function to estimate the 
+# effectiveness of this model on unseen, new data.
+confusionMatrix(pred5, test_df$diabetes)
+```
