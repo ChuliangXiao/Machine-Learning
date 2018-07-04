@@ -1,7 +1,7 @@
 Association Rule Learning
 ================
 
-# What’s the Association Rule Learning (ARL)?
+### What’s the Association Rule Learning (ARL)?
 
   - Association rule learning from
     [Wikipedia](https://en.wikipedia.org/wiki/Association_rule_learning#cite_note-piatetsky-1)
