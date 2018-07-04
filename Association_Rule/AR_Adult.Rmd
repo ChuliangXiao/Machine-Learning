@@ -1,0 +1,34 @@
+---
+title: "Association Rule Learning: Adult"
+output: github_document
+---
+#### Load packages
+```{r package, warning = F, message = F}
+library(tidyverse)  # data manipulation
+library(arules)    # clustering algorithms
+```
+
+
+#### `arules::Adult` dataset
+```{r Adult}
+data("Adult")
+summary(Adult)
+rules <- apriori(Adult, parameter = list(supp = 0.5, conf = 0.9, target = "rules"))
+inspect(head(rules, by = "lift"))
+```
+
+#### Remove Redundant Rules
+```{r lhs}
+subsetRules <- which(colSums(is.subset(rules, rules)) > 1) # get subset rules in vector
+length(subsetRules)  
+rules_red <- rules[-subsetRules]
+inspect(head(rules_red, by = "lift"))
+```
+
+#### Visualize Association Rules
+```{r}
+library(arulesViz)
+plot(rules)
+plot(rules_red, method = "graph", control = list(type = "items"))
+```
+

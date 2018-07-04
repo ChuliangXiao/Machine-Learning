@@ -1,0 +1,77 @@
+---
+title: "Association Rule Learning: Groceries"
+output: github_document
+---
+#### Load packages
+```{r package, warning = F, message = F}
+library(tidyverse)  # data manipulation
+library(arules)    # clustering algorithms
+```
+
+##### transaction class
+```{r transaction class}
+data(Groceries)
+class(Groceries)
+inspect(head(Groceries))
+```
+
+#### Most frequent items
+```{r top itmes}
+frequentItems <- eclat (Groceries, parameter = list(supp = 0.07, maxlen = 15)) 
+inspect(frequentItems)
+
+# plot frequent items
+itemFrequencyPlot(Groceries, topN=10, type="absolute", main="Item Frequency") 
+```
+
+#### Product recommendation rules
+```{r rules}
+# Min Support as 0.001, confidence as 0.8.
+rules <- apriori (Groceries, parameter = list(supp = 0.001, conf = 0.5)) 
+rules_conf <- sort (rules, by = "confidence", decreasing = TRUE) # 'high-confidence' rules.
+inspect(head(rules_conf))
+
+rules_lift <- sort (rules, by = "lift", decreasing = TRUE) # 'high-lift' rules.
+inspect(head(rules_lift))
+```
+
+#### Remove Redundant Rules
+```{r lhs}
+subsetRules <- which(colSums(is.subset(rules, rules)) > 1) # get subset rules in vector
+length(subsetRules)  
+rules <- rules[-subsetRules]
+```
+
+#### Visualize Association Rules
+```{r}
+library(arulesViz)
+plot(rules)
+
+rules %>% 
+  sort (by = "confidence", decreasing = TRUE) %>% 
+  head(m= 50) %>% 
+  plot(method = "graph")
+```
+
+#### Rules Related To Given Item/s
+##### right hand side (rhs)
+```{r rhs}
+rules <- apriori (data=Groceries, 
+                  parameter= list (supp = 0.001, conf = 0.08), 
+                  appearance = list (default = "lhs", rhs = "whole milk"), 
+                  control = list (verbose= F)) # get rules that lead to buying 'whole milk'
+
+rules_conf <- sort (rules, by = "confidence", decreasing = TRUE) # 'high-confidence' rules.
+inspect(head(rules_conf))
+```
+
+##### left hand side (lhs)
+```{r}
+rules <- apriori (data=Groceries, 
+                  parameter=list (supp = 0.001, conf = 0.15,minlen=2), 
+                  appearance = list(default = "rhs",lhs = "whole milk"), 
+                  control = list (verbose = F)) # those who bought 'milk' also bought..
+rules_conf <- sort (rules, by = "confidence", decreasing = TRUE) # 'high-confidence' rules.
+inspect(head(rules_conf))
+```
+

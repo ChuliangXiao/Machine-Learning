@@ -1,0 +1,55 @@
+---
+title: "Association Rule Learning: Adult"
+output: github_document
+---
+Case study from [RDataMining](http://www.rdatamining.com/examples/association-rules)  
+#### Load packages
+```{r package, warning = F, message = F}
+library(tidyverse)  # data manipulation
+library(arules)    # clustering algorithms
+```
+
+#### `titanic.raw.rdata` dataset
+```{r Adult}
+titanic.raw <- get(load("titanic.raw.rdata"))
+str(titanic.raw)
+
+rules <- apriori(titanic.raw)
+inspect(head(rules, by = "confidence"))
+```
+
+#### "Survived" only
+```{r Survived}
+# rules with rhs containing "Survived" only
+rules <- apriori(titanic.raw,
+                 parameter = list(minlen = 2, supp = 0.005, conf = 0.8),
+                 appearance = list(rhs = c("Survived=No", "Survived=Yes"),
+                                   default = "lhs"),
+                 control = list(verbose = F))
+rules.sorted <- sort(rules, by = "lift")
+inspect(rules.sorted)
+```
+
+
+#### Remove Redundant Rules
+```{r lhs}
+subsetRules <- which(colSums(is.subset(rules.sorted, rules.sorted)) > 1) # get subset rules in vector
+length(subsetRules)  
+rules_red <- rules.sorted[-subsetRules]
+inspect(rules_red)
+
+subset.matrix <- is.subset(rules.sorted, rules.sorted)
+subset.matrix[lower.tri(subset.matrix, diag = T)] <- NA
+redundant <- colSums(subset.matrix, na.rm = T) >= 1
+which(redundant)
+rules.pruned <- rules.sorted[-redundant]
+inspect(rules.pruned)
+```
+
+#### Visualize Association Rules
+```{r}
+library(arulesViz)
+plot(rules)
+plot(rules_red, method = "graph", control = list(type = "items"))
+```
+
