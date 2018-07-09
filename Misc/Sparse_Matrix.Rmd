@@ -1,0 +1,66 @@
+---
+output: github_document
+---
+### Why sparse matrix?  
+* `XGBoost` only works with matrices that contain **all numeric** variables; consequently, we need to one hot encode our data. There are different ways to do this in R. ([UC Business Analytics R Programming Guide](http://uc-r.github.io/gbm_regression)) 
+* `caret::preProcess`, bagged regression trees for missing values recovery ([Yevhen Vasylenko](https://rpubs.com/geka/BagImput_air)), which requires **all numeric** variables.     
+
+### Data
+```{r data, message = F, warning = F}
+library(tidyverse)
+dd <- data.frame(a = gl(3,4), 
+                 b = gl(4,1,12), 
+                 c = 1:12, 
+                 d = sample(c("X", "Y", "Z"), 12, replace = TRUE))
+str(dd)
+```
+
+The above data frame contains 4 columns (variables): 3 factor and 1 numeric. Multiple packages in R have similar functions on generating sparse matrix or dummy variables. 
+
+#### `base::model.matrix`  
+```{r model.matrix}
+(mm0 <- model.matrix(~ . , data = dd))
+(mm1 <- model.matrix(~ . -1, data = dd)) # no intercept
+#if only applied to one column
+head(mm2 <- model.matrix(~ a , data = dd)) # no intercept
+head(mm3 <- model.matrix(~ a -1, data = dd)) # no intercept
+```
+
+
+#### `Matrix::sparse.model.matrix`  
+```{r sparse.model.matrix}
+sm1 <- Matrix::sparse.model.matrix(~ . -1, data = dd)
+str(sm1)  #class 'dgCMatrix'
+
+(sm2 <- Matrix::sparse.model.matrix(~ a -1, data = dd))
+```
+
+
+#### `MatrixModels::model.Matrix`
+> `model.Matrix` which is a simple wrapper around the traditional `model.matrix` and returns a _ddenseModelMatrix_ object.  
+
+```{r model.Matrix}
+rm1 <- MatrixModels::model.Matrix(~ . -1, data = dd)
+str(rm1)  #class 'ddenseModelMatrix'
+(rm2 <- MatrixModels::model.Matrix(~ a -1, data = dd))
+```
+
+### `caret::dummyVars`
+```{r dummyVars, message = F, warning = F}
+library(caret)
+dummy.vars <- dummyVars(~ . , data = dd)
+str(dummy.vars)  #dummyVars list
+dd.dummy   <- predict(dummy.vars, dd)
+dd.dummy  # numeric matrix
+```
+
+### `base::model.matrix` 
+```{r all columns}
+mm.dummy <- cbind(model.matrix(~ a - 1, data = dd),
+                  model.matrix(~ b - 1, data = dd),
+                  c = dd[, "c"],
+                  model.matrix(~ d - 1, data = dd)
+                  )
+mm.dummy
+```
+

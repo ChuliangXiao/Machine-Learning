@@ -230,14 +230,14 @@ write.csv(submit, file = "output/gbm5cv.csv", row.names = FALSE)
 ##### Step 1: Sparse Matrix
 ```{r}
 mymatrix    <- function(train){
-matrix_num  <- train[ , c("Item_Visibility", "Item_MRP")]
-matrix_num  <- cbind(matrix_num,
-                      model.matrix(~ Outlet_Type - 1, train),
-                      model.matrix(~ Outlet_Location_Type - 1, train),
-                      model.matrix(~ Outlet_Size - 1, train),
-                      model.matrix(~ Item_Type - 1, train),
-                      model.matrix(~ Outlet_Years - 1, train)
-                      )
+  matrix_num  <- train[ , c("Item_Visibility", "Item_MRP")]
+  matrix_num  <- cbind(matrix_num,
+                       model.matrix(~ Outlet_Type - 1, train),
+                       model.matrix(~ Outlet_Location_Type - 1, train),
+                       model.matrix(~ Outlet_Size - 1, train),
+                       model.matrix(~ Item_Type - 1, train),
+                       model.matrix(~ Outlet_Years - 1, train)
+                       )
   return(data.matrix(matrix_num))
 }
 
@@ -246,8 +246,8 @@ xgb.train_val <- mymatrix(train_val)
 xgb.test_val  <- mymatrix(test_val)
 xgb.test      <- mymatrix(test)
 
-dtrain_val  <- xgb.DMatrix(data = xgb.train_val, label=train_val$Item_Sales_Vol)
-dtest_val   <- xgb.DMatrix(data = xgb.test_val, label=test_val$Item_Sales_Vol)
+dtrain_val  <- xgb.DMatrix(data = xgb.train_val, label = train_val$Item_Sales_Vol)
+dtest_val   <- xgb.DMatrix(data = xgb.test_val, label = test_val$Item_Sales_Vol)
 dtest_sub   <- xgb.DMatrix(data = xgb.test)
 ```
 
